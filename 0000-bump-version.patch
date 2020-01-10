@@ -1,0 +1,13 @@
+Index: src/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+===================================================================
+--- src.orig/drivers/net/ethernet/broadcom/bnxt/bnxt.h	2019-08-27 12:24:53.893523481 +0200
++++ src/drivers/net/ethernet/broadcom/bnxt/bnxt.h	2019-08-27 12:34:37.052876400 +0200
+@@ -12,7 +12,7 @@
+ #define BNXT_H
+ 
+ #define DRV_MODULE_NAME		"bnxt_en"
+-#define DRV_MODULE_VERSION	"1.10.0"
++#define DRV_MODULE_VERSION	"1.10.0_dup7.7"
+ 
+ #define DRV_VER_MAJ	1
+ #define DRV_VER_MIN	10

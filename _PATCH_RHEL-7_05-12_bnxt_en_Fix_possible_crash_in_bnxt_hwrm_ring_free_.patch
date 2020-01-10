@@ -1,0 +1,74 @@
+Date: Wed,  5 Jun 2019 13:55:24 -0400
+From: Jonathan Toppins <jtoppins@redhat.com>
+To: rhkernel-list@redhat.com
+Cc: darcari@redhat.com, linville@redhat.com
+Subject: [PATCH RHEL-7 05/12] bnxt_en: Fix possible crash in
+ bnxt_hwrm_ring_free() under error conditions.
+
+If we encounter errors during open and proceed to clean up,
+bnxt_hwrm_ring_free() may crash if the rings we try to free have never
+been allocated.  bnxt_cp_ring_for_rx() or bnxt_cp_ring_for_tx()
+may reference pointers that have not been allocated.
+
+Fix it by checking for valid fw_ring_id first before calling
+bnxt_cp_ring_for_rx() or bnxt_cp_ring_for_tx().
+
+Fixes: 2c61d2117ecb ("bnxt_en: Add helper functions to get firmware CP ring ID.")
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 1f83391bd6fc48f92f627b0ec0bce686d100c6a5)
+Bugzilla: 1715161
+Build Info: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=21964229
+Tested: build and boot
+Signed-off-by: Jonathan Toppins <jtoppins@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 9e747f155fd9..0b57c5522791 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -5121,10 +5121,10 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
+ 	for (i = 0; i < bp->tx_nr_rings; i++) {
+ 		struct bnxt_tx_ring_info *txr = &bp->tx_ring[i];
+ 		struct bnxt_ring_struct *ring = &txr->tx_ring_struct;
+-		u32 cmpl_ring_id;
+ 
+-		cmpl_ring_id = bnxt_cp_ring_for_tx(bp, txr);
+ 		if (ring->fw_ring_id != INVALID_HW_RING_ID) {
++			u32 cmpl_ring_id = bnxt_cp_ring_for_tx(bp, txr);
++
+ 			hwrm_ring_free_send_msg(bp, ring,
+ 						RING_FREE_REQ_RING_TYPE_TX,
+ 						close_path ? cmpl_ring_id :
+@@ -5137,10 +5137,10 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
+ 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
+ 		struct bnxt_ring_struct *ring = &rxr->rx_ring_struct;
+ 		u32 grp_idx = rxr->bnapi->index;
+-		u32 cmpl_ring_id;
+ 
+-		cmpl_ring_id = bnxt_cp_ring_for_rx(bp, rxr);
+ 		if (ring->fw_ring_id != INVALID_HW_RING_ID) {
++			u32 cmpl_ring_id = bnxt_cp_ring_for_rx(bp, rxr);
++
+ 			hwrm_ring_free_send_msg(bp, ring,
+ 						RING_FREE_REQ_RING_TYPE_RX,
+ 						close_path ? cmpl_ring_id :
+@@ -5159,10 +5159,10 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
+ 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
+ 		struct bnxt_ring_struct *ring = &rxr->rx_agg_ring_struct;
+ 		u32 grp_idx = rxr->bnapi->index;
+-		u32 cmpl_ring_id;
+ 
+-		cmpl_ring_id = bnxt_cp_ring_for_rx(bp, rxr);
+ 		if (ring->fw_ring_id != INVALID_HW_RING_ID) {
++			u32 cmpl_ring_id = bnxt_cp_ring_for_rx(bp, rxr);
++
+ 			hwrm_ring_free_send_msg(bp, ring, type,
+ 						close_path ? cmpl_ring_id :
+ 						INVALID_HW_RING_ID);
+-- 
+2.16.4
+
+

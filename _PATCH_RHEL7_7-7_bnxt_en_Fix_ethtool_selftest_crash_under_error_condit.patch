@@ -1,0 +1,54 @@
+Date: Fri, 16 Aug 2019 17:35:59 -0400
+From: Jonathan Toppins <jtoppins@redhat.com>
+To: rhkernel-list@redhat.com
+Cc: darcari@redhat.com, nhorman@redhat.com, linville@redhat.com
+Subject: [PATCH RHEL7 7/7] bnxt_en: Fix ethtool selftest crash under error
+ conditions.
+
+After ethtool loopback packet tests, we re-open the nic for the next
+IRQ test.  If the open fails, we must not proceed with the IRQ test
+or we will crash with NULL pointer dereference.  Fix it by checking
+the bnxt_open_nic() return code before proceeding.
+
+Reported-by: Somasundaram Krishnasamy <somasundaram.krishnasamy@oracle.com>
+Fixes: 67fea463fd87 ("bnxt_en: Add interrupt test to ethtool -t selftest.")
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit d27e2ca1166aefd54d9c48fb6647dee8115a5dfc)
+Bugzilla: 1738649
+Build Info: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=23050341
+Tested: netperf with ipv4 & ipv6 testing
+Signed-off-by: Jonathan Toppins <jtoppins@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index d9b67724a503..61e1c4ce82af 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -2799,7 +2799,7 @@ static void bnxt_self_test(struct net_device *dev, struct ethtool_test *etest,
+ 	bool offline = false;
+ 	u8 test_results = 0;
+ 	u8 test_mask = 0;
+-	int rc, i;
++	int rc = 0, i;
+ 
+ 	if (!bp->num_tests || !BNXT_SINGLE_PF(bp))
+ 		return;
+@@ -2870,9 +2870,9 @@ static void bnxt_self_test(struct net_device *dev, struct ethtool_test *etest,
+ 		}
+ 		bnxt_hwrm_phy_loopback(bp, false, false);
+ 		bnxt_half_close_nic(bp);
+-		bnxt_open_nic(bp, false, true);
++		rc = bnxt_open_nic(bp, false, true);
+ 	}
+-	if (bnxt_test_irq(bp)) {
++	if (rc || bnxt_test_irq(bp)) {
+ 		buf[BNXT_IRQ_TEST_IDX] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 	}
+-- 
+2.16.4
+
+

@@ -1,0 +1,45 @@
+Date: Wed,  5 Jun 2019 13:55:29 -0400
+From: Jonathan Toppins <jtoppins@redhat.com>
+To: rhkernel-list@redhat.com
+Cc: darcari@redhat.com, linville@redhat.com
+Subject: [PATCH RHEL-7 10/12] bnxt_en: Fix aggregation buffer leak under OOM
+ condition.
+
+For every RX packet, the driver replenishes all buffers used for that
+packet and puts them back into the RX ring and RX aggregation ring.
+In one code path where the RX packet has one RX buffer and one or more
+aggregation buffers, we missed recycling the aggregation buffer(s) if
+we are unable to allocate a new SKB buffer.  This leads to the
+aggregation ring slowly running out of buffers over time.  Fix it
+by properly recycling the aggregation buffers.
+
+Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
+Reported-by: Rakesh Hemnani <rhemnani@fb.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 296d5b54163964b7ae536b8b57dfbd21d4e868e1)
+Bugzilla: 1715161
+Build Info: https://brewweb.engineering.redhat.com/brew/taskinfo?taskID=21964229
+Tested: build and boot
+Signed-off-by: Jonathan Toppins <jtoppins@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 49a60a713ce4..3e0697cecd36 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -1632,6 +1632,8 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_cp_ring_info *cpr,
+ 		skb = bnxt_copy_skb(bnapi, data_ptr, len, dma_addr);
+ 		bnxt_reuse_rx_data(rxr, cons, data);
+ 		if (!skb) {
++			if (agg_bufs)
++				bnxt_reuse_rx_agg_bufs(cpr, cp_cons, agg_bufs);
+ 			rc = -ENOMEM;
+ 			goto next_rx;
+ 		}
+-- 
+2.16.4
+
+
